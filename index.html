@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f5f5f1">
+  <title>Scene Scout — Find where your favorite scenes were filmed</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #20231f;
+      --muted: #737870;
+      --paper: #f5f5f1;
+      --white: #fff;
+      --line: #e8e9e3;
+      --green: #376b50;
+      --green-dark: #28523d;
+      --green-soft: #eaf0e9;
+      --orange: #e48252;
+      --shadow: 0 12px 35px rgb(34 42 32 / 6%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--paper); color: var(--ink); }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    .app-shell { max-width: 1540px; margin: 0 auto; padding: 0 52px 48px; }
+
+    header {
+      height: 82px; display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid #e8e9e2;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; font-size: 15px; font-weight: 750; letter-spacing: -.5px; }
+    .brand-mark {
+      width: 31px; height: 31px; display: grid; place-items: center; border-radius: 10px;
+      color: white; background: var(--green); transform: rotate(-5deg);
+    }
+    .brand-mark svg { transform: rotate(5deg); }
+    .header-right { display: flex; align-items: center; gap: 22px; color: var(--muted); font-size: 12px; }
+    .header-link { display: flex; align-items: center; gap: 7px; }
+    .avatar { display: grid; place-items: center; width: 33px; height: 33px; border-radius: 50%; background: #e8e5da; color: #777365; font-size: 11px; font-weight: 700; }
+
+    .intro { padding: 44px 0 23px; }
+    .eyebrow { color: var(--green); font-size: 10px; font-weight: 800; letter-spacing: 1.65px; text-transform: uppercase; }
+    h1 { margin: 10px 0 8px; font-size: clamp(29px, 3.2vw, 42px); line-height: 1.12; letter-spacing: -1.7px; font-weight: 660; }
+    .subtitle { margin: 0; font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+    .search-row { position: relative; z-index: 4; display: flex; align-items: center; gap: 12px; margin: 23px 0 18px; }
+    .search-wrap {
+      position: relative; display: flex; align-items: center; width: min(100%, 560px); height: 48px;
+      border: 1px solid #e3e5de; border-radius: 8px; background: white; box-shadow: 0 2px 6px rgb(27 37 26 / 3%);
+    }
+    .search-icon { flex: 0 0 auto; margin: 0 12px 0 15px; color: #7d827b; }
+    .search-input { min-width: 0; width: 100%; height: 100%; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 13px; }
+    .search-input::placeholder { color: #9a9e97; }
+    .search-shortcut { margin: 0 12px; padding: 4px 6px; border: 1px solid var(--line); border-radius: 4px; color: #8b9088; font-size: 10px; white-space: nowrap; }
+    .search-button { height: 48px; padding: 0 20px; border: 0; border-radius: 7px; background: var(--green); color: white; font-size: 12px; font-weight: 650; cursor: pointer; transition: background .15s; }
+    .search-button:hover { background: var(--green-dark); }
+    .suggestions {
+      position: absolute; top: calc(100% + 6px); left: 0; right: 0; padding: 6px;
+      border: 1px solid var(--line); border-radius: 8px; background: white; box-shadow: 0 12px 30px rgb(24 31 23 / 12%);
+    }
+    .suggestions[hidden] { display: none; }
+    .suggestion-heading { padding: 8px 10px 5px; color: #8b9088; font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; }
+    .suggestion { display: flex; width: 100%; align-items: center; gap: 11px; padding: 9px 10px; border: 0; border-radius: 6px; text-align: left; background: transparent; cursor: pointer; }
+    .suggestion:hover, .suggestion:focus-visible { background: #f3f5f1; outline: none; }
+    .suggestion-poster { display: grid; place-items: center; width: 32px; height: 38px; border-radius: 4px; color: white; font-size: 10px; font-weight: 750; }
+    .suggestion-name { font-size: 12px; font-weight: 650; }
+    .suggestion-meta { margin-top: 3px; color: var(--muted); font-size: 10px; }
+
+    .quick-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; margin-bottom: 26px; }
+    .filter-label { margin-right: 4px; color: #8a8e87; font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase; }
+    .filter-chip { padding: 7px 12px; border: 1px solid #e5e7e0; border-radius: 30px; background: transparent; color: #676d65; font-size: 11px; cursor: pointer; transition: .15s; }
+    .filter-chip:hover { border-color: #b7c8b9; }
+    .filter-chip.active { border-color: var(--green); background: var(--green); color: white; }
+
+    .workspace { display: grid; grid-template-columns: minmax(0, 1fr) 326px; gap: 18px; align-items: stretch; }
+    .map-card, .details-card { min-width: 0; height: 555px; border: 1px solid #e8e9e2; border-radius: 10px; background: white; box-shadow: var(--shadow); }
+    .map-card { position: relative; overflow: hidden; }
+    .map-toolbar {
+      position: absolute; z-index: 2; top: 16px; left: 17px; right: 17px; display: flex;
+      align-items: flex-start; justify-content: space-between; pointer-events: none;
+    }
+    .map-heading, .map-controls, .map-legend { pointer-events: auto; }
+    .map-heading { padding: 10px 12px; border: 1px solid #ecede8; border-radius: 7px; background: rgb(255 255 255 / 94%); box-shadow: 0 2px 8px rgb(36 41 35 / 4%); }
+    .map-heading strong { display: block; font-size: 12px; font-weight: 700; }
+    .map-heading span { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
+    .map-controls { display: flex; align-items: center; gap: 8px; }
+    .all-movies-button { padding: 7px 10px; border: 1px solid #e8e9e3; border-radius: 7px; background: white; color: #777d75; font-size: 10px; cursor: pointer; white-space: nowrap; }
+    .all-movies-button.active { border-color: var(--green); background: var(--green); color: white; font-weight: 700; }
+    .view-toggle { display: flex; padding: 3px; border: 1px solid #e8e9e3; border-radius: 7px; background: white; box-shadow: 0 2px 8px rgb(36 41 35 / 4%); }
+    .view-option { padding: 6px 10px; border: 0; border-radius: 5px; background: transparent; color: #777d75; font-size: 10px; cursor: pointer; }
+    .view-option.active { background: var(--green-soft); color: var(--green-dark); font-weight: 700; }
+    .icon-button { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid #e8e9e3; border-radius: 7px; background: white; box-shadow: 0 2px 8px rgb(36 41 35 / 4%); color: #6d736b; cursor: pointer; }
+    .icon-button:hover { color: var(--green); background: #f8faf7; }
+    .map-svg { display: block; width: 100%; height: 100%; background: #f8faf7; }
+    .map-grid { fill: none; stroke: #e9eee8; stroke-width: .8; }
+    .land { fill: #e9eee7; stroke: #fff; stroke-width: .8; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+    .land.selected-country { fill: #d9e8d9; stroke: #a7bba8; }
+    .map-label { fill: #9da69b; font-size: 11px; font-weight: 650; letter-spacing: 1px; }
+    .map-city { fill: #8c958a; font-size: 9px; }
+    .pin-group { cursor: pointer; }
+    .pin-halo { fill: #e48252; opacity: .16; }
+    .pin { fill: #e48252; stroke: white; stroke-width: 2.5; transition: r .15s, fill .15s; }
+    .pin-group:hover .pin, .pin-group.selected .pin { fill: var(--green); }
+    .pin-group.selected .pin-halo { fill: #376b50; }
+    .pin-number { fill: white; font-size: 9px; font-weight: 800; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+    .pin-group.aggregate .pin { fill: #376b50; }
+    .pin-group.aggregate .pin-halo { fill: #376b50; }
+    .map-legend { position: absolute; bottom: 17px; left: 17px; display: flex; align-items: center; gap: 7px; padding: 8px 10px; border: 1px solid #ecede8; border-radius: 6px; background: rgb(255 255 255 / 94%); color: #767d74; font-size: 10px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); }
+    .map-attribution { position: absolute; right: 12px; bottom: 10px; color: #a0a49c; font-size: 9px; }
+
+    .details-card { display: flex; flex-direction: column; overflow: hidden; }
+    .show-header { display: flex; gap: 13px; padding: 18px 17px 15px; border-bottom: 1px solid #eff0eb; }
+    .poster {
+      display: grid; flex: 0 0 auto; width: 56px; height: 69px; place-items: center;
+      border-radius: 5px; color: white; font-size: 16px; font-weight: 780; letter-spacing: -1px;
+      box-shadow: inset 0 0 20px rgb(0 0 0 / 12%);
+    }
+    .show-copy { min-width: 0; align-self: center; }
+    .show-title { margin: 0; font-size: 15px; letter-spacing: -.3px; line-height: 1.3; }
+    .show-meta { margin-top: 5px; color: var(--muted); font-size: 10px; }
+    .show-stats { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--green); font-size: 10px; font-weight: 700; }
+    .scene-section-title { display: flex; align-items: center; justify-content: space-between; padding: 15px 17px 10px; }
+    .scene-section-title strong { font-size: 11px; }
+    .scene-count { color: #858a82; font-size: 10px; }
+    .scene-list { flex: 1; min-height: 0; overflow-y: auto; padding: 0 8px 8px; }
+    .scene-item {
+      display: grid; width: 100%; grid-template-columns: 27px 1fr auto; gap: 9px; align-items: start;
+      padding: 11px 9px; border: 0; border-radius: 7px; background: transparent; text-align: left; cursor: pointer;
+    }
+    .scene-item + .scene-item { border-top: 1px solid #f0f1ed; }
+    .scene-item:hover { background: #f7f8f5; }
+    .scene-item.active { background: #f0f5ef; }
+    .scene-index { display: grid; width: 25px; height: 25px; place-items: center; border-radius: 50%; background: #f1eee7; color: #777a71; font-size: 10px; font-weight: 750; }
+    .scene-item.active .scene-index { background: var(--green); color: white; }
+    .scene-name { display: block; margin-top: 1px; font-size: 11px; font-weight: 650; line-height: 1.4; }
+    .scene-location { display: block; margin-top: 4px; color: var(--muted); font-size: 10px; }
+    .scene-type { align-self: center; padding: 4px 6px; border: 1px solid #e9ebe5; border-radius: 4px; color: #82877f; font-size: 9px; white-space: nowrap; }
+    .scene-tip { display: flex; align-items: center; gap: 7px; padding: 12px 15px; border-top: 1px solid #eff0eb; color: #798075; font-size: 10px; line-height: 1.5; }
+    .scene-tip svg { flex: 0 0 auto; color: var(--green); }
+    .empty-state { padding: 20px 15px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+
+    .toast { position: fixed; z-index: 8; left: 50%; bottom: 24px; padding: 10px 15px; border-radius: 7px; background: #262c27; color: white; font-size: 12px; box-shadow: 0 8px 22px rgb(0 0 0 / 16%); transform: translate(-50%, 15px); opacity: 0; pointer-events: none; transition: .2s; }
+    .toast.visible { transform: translate(-50%, 0); opacity: 1; }
+    .footer-note { padding: 18px 2px 0; color: #92968f; font-size: 10px; }
+
+    @media (min-width: 1300px) {
+      .app-shell { padding-right: 72px; padding-left: 72px; }
+      .workspace { grid-template-columns: minmax(0, 1fr) 348px; }
+      .map-card, .details-card { height: 590px; }
+    }
+    @media (max-width: 900px) {
+      .app-shell { padding: 0 25px 35px; }
+      .workspace { grid-template-columns: minmax(0, 1fr) 300px; gap: 12px; }
+      .map-card, .details-card { height: 520px; }
+      .map-controls { gap: 5px; }
+      .icon-button { width: 29px; height: 29px; }
+      .view-option { padding: 6px 7px; }
+    }
+    @media (max-width: 680px) {
+      .app-shell { padding: 0 16px 30px; }
+      header { height: 67px; }
+      .header-right { gap: 12px; }
+      .header-link { font-size: 0; gap: 0; }
+      .intro { padding: 33px 0 17px; }
+      h1 { font-size: 32px; letter-spacing: -1.2px; }
+      .subtitle { max-width: 390px; font-size: 13px; }
+      .search-row { gap: 8px; margin: 20px 0 16px; }
+      .search-shortcut { display: none; }
+      .search-button { padding: 0 14px; }
+      .workspace { grid-template-columns: 1fr; gap: 12px; }
+      .map-card { height: min(470px, 112vw); min-height: 330px; }
+      .details-card { height: 400px; }
+      .map-toolbar { top: 10px; left: 10px; right: 10px; }
+      .map-heading { padding: 8px 9px; }
+      .map-heading span { font-size: 9px; }
+      .map-controls { flex-wrap: wrap; justify-content: flex-end; max-width: 58%; }
+      .view-option { padding: 6px 7px; font-size: 9px; }
+      .icon-button { width: 28px; height: 28px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header>
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none"><path d="M4 5.5h16v13H4zM8 5.5l3 5m2-5 3 5m-8 8 3-5m2 5 3-5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+        <span>scene scout</span>
+      </div>
+      <div class="header-right">
+        <span class="header-link"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.6"/><path d="M12 11v5m0-8h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> About</span>
+        <span class="avatar" aria-label="Your profile">SC</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div class="eyebrow">From screen to somewhere</div>
+        <h1 id="page-title">The world is their set.<br>Now it can be yours.</h1>
+        <p class="subtitle">Explore the 100 most-voted movies with documented filming locations around the world.</p>
+
+        <form class="search-row" id="search-form" role="search">
+          <div class="search-wrap">
+            <svg class="search-icon" width="17" height="17" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8" stroke="currentColor" stroke-width="1.7"/><path d="m16 16 4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+            <input id="search-input" class="search-input" type="search" autocomplete="off" placeholder="Search the top 100 movies or a filming location..." aria-label="Search movies or filming locations" aria-expanded="false" aria-controls="suggestions">
+            <span class="search-shortcut" aria-hidden="true">↵</span>
+            <div class="suggestions" id="suggestions" role="listbox" hidden></div>
+          </div>
+          <button class="search-button" type="submit">Find locations</button>
+        </form>
+
+        <div class="quick-filters" aria-label="Movie ranking information">
+          <span class="filter-label">Movie index</span>
+          <span class="filter-chip active">Top 100 by IMDb vote count</span>
+          <span class="scene-count">Ranked among films with mapped locations</span>
+        </div>
+      </section>
+
+      <section class="workspace" aria-label="Filming locations">
+        <div class="map-card">
+          <div class="map-toolbar">
+            <div class="map-heading"><strong id="map-title">Filming locations</strong><span id="map-subtitle">Explore every scene on the map</span></div>
+            <div class="map-controls">
+              <button type="button" class="all-movies-button active" id="all-movies">All 100</button>
+              <div class="view-toggle" role="group" aria-label="Map area">
+                <button type="button" class="view-option active" data-view="world" aria-pressed="true">World</button>
+                <button type="button" class="view-option" data-view="country" aria-pressed="false">Country</button>
+              </div>
+              <button class="icon-button" id="zoom-in" type="button" aria-label="Zoom in"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 5v14m-7-7h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+              <button class="icon-button" id="zoom-out" type="button" aria-label="Zoom out"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+            </div>
+          </div>
+          <svg class="map-svg" id="map" viewBox="0 0 1000 500" role="img" aria-label="Map of filming locations around the world" preserveAspectRatio="xMidYMid meet">
+            <rect width="1000" height="500" fill="#f8faf7"/>
+            <g id="map-grid" class="map-grid"></g>
+            <g id="map-land"></g>
+            <g id="map-labels"></g>
+            <g id="map-pins"></g>
+          </svg>
+          <div class="map-legend"><span class="legend-dot"></span><span id="legend-text">Filming locations</span></div>
+          <div class="map-attribution">Natural Earth · Equal Earth projection</div>
+        </div>
+
+        <aside class="details-card" aria-label="Scenes and title details">
+          <div class="show-header" id="show-header"></div>
+          <div class="scene-section-title"><strong id="list-heading">Top 100 movies</strong><span class="scene-count" id="scene-count"></span></div>
+          <div class="scene-list" id="scene-list" aria-live="polite"></div>
+          <div class="scene-tip"><svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M12 3.5a7 7 0 0 0-4.3 12.5c.7.5 1.1 1.4 1.1 2.3h6.4c0-.9.4-1.8 1.1-2.3A7 7 0 0 0 12 3.5Z" stroke="currentColor" stroke-width="1.6"/><path d="M9.5 21h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span id="scene-tip-text">Select a movie or map pin to explore its filming locations</span></div>
+        </aside>
+      </section>
+      <p class="footer-note">Popularity is ranked by IMDb vote count. Filming-location names and coordinates are recorded in Wikidata and may indicate broad areas rather than exact scene sites. Map boundaries: Natural Earth (public domain). <a href="https://datasets.imdbws.com/" target="_blank" rel="noreferrer">IMDb datasets</a> · <a href="https://www.wikidata.org/" target="_blank" rel="noreferrer">Wikidata</a> · <a href="https://www.naturalearthdata.com/" target="_blank" rel="noreferrer">Natural Earth</a>.</p>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    const titles = [];
+
+    const baseLand = document.getElementById("map-land");
+    const baseLabels = document.getElementById("map-labels");
+    const grid = document.getElementById("map-grid");
+    const pinsLayer = document.getElementById("map-pins");
+    const map = document.getElementById("map");
+    const sceneList = document.getElementById("scene-list");
+    const searchInput = document.getElementById("search-input");
+    const suggestions = document.getElementById("suggestions");
+    const toast = document.getElementById("toast");
+    let activeTitle = null;
+    let activeScene = 0;
+    let mapView = "world";
+    let zoom = 1;
+    let toastTimer;
+
+    function project(lon, lat) {
+      const lambda = lon * Math.PI / 180;
+      const phi = Math.max(-89.999, Math.min(89.999, lat)) * Math.PI / 180;
+      const theta = Math.asin(Math.sqrt(3) / 2 * Math.sin(phi));
+      const theta2 = theta * theta;
+      const xDenominator = 1.340264 - 0.243318 * theta2 + 0.006251 * theta2 ** 3 + 0.034164 * theta2 ** 4;
+      const x = lambda * Math.cos(theta) / (Math.sqrt(3) / 2 * xDenominator);
+      const y = theta * (1.340264 - 0.081106 * theta2 + 0.000893 * theta2 ** 3 + 0.003796 * theta2 ** 4);
+      return { x: 500 + x * 184.5, y: 250 - y * 184.5 };
+    }
+
+    function drawGrid() {
+      grid.replaceChildren();
+      const drawLine = (points) => {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("d", points.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`).join(" "));
+        grid.appendChild(path);
+      };
+      for (let lon = -150; lon <= 150; lon += 30) {
+        const points = [];
+        for (let lat = -80; lat <= 80; lat += 4) points.push(project(lon, lat));
+        drawLine(points);
+      }
+      for (let lat = -60; lat <= 60; lat += 30) {
+        const points = [];
+        for (let lon = -180; lon <= 180; lon += 4) points.push(project(lon, lat));
+        drawLine(points);
+      }
+    }
+
+    function ringPath(ring) {
+      let path = "";
+      let previous = null;
+      let open = false;
+      ring.forEach(([lon, lat]) => {
+        const point = project(lon, lat);
+        if (previous && Math.abs(point.x - previous.x) > 400) {
+          path += "Z";
+          open = false;
+        }
+        path += `${open ? "L" : "M"}${point.x.toFixed(2)} ${point.y.toFixed(2)}`;
+        previous = point;
+        open = true;
+      });
+      return path + "Z";
+    }
+
+    function geometryPath(geometry) {
+      const polygons = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
+      return polygons.map((polygon) => polygon.map(ringPath).join("")).join("");
+    }
+
+    function drawCountries(features) {
+      baseLand.replaceChildren();
+      baseLabels.replaceChildren();
+      features.forEach((feature) => {
+        const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        const country = feature.properties.ADMIN || feature.properties.NAME || "Country";
+        path.setAttribute("d", geometryPath(feature.geometry));
+        path.setAttribute("class", "land");
+        path.setAttribute("data-country", country);
+        path.setAttribute("fill-rule", "evenodd");
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        label.textContent = country;
+        path.appendChild(label);
+        baseLand.appendChild(path);
+      });
+      drawGrid();
+    }
+
+    function renderHeader() {
+      const header = document.getElementById("show-header");
+      header.replaceChildren();
+      const poster = document.createElement("div");
+      poster.className = "poster";
+      poster.style.background = activeTitle?.color || "linear-gradient(145deg,#426d53,#233f31)";
+      poster.textContent = activeTitle?.mark || "100";
+      const copy = document.createElement("div");
+      copy.className = "show-copy";
+      const title = document.createElement("h2");
+      title.className = "show-title";
+      title.textContent = activeTitle?.title || "Most popular films";
+      const meta = document.createElement("div");
+      meta.className = "show-meta";
+      meta.textContent = activeTitle ? `${activeTitle.votes.toLocaleString()} IMDb votes · rating ${activeTitle.rating.toFixed(1)}` : "100 movies · ranked by IMDb vote count";
+      const stats = document.createElement("div");
+      stats.className = "show-stats";
+      stats.textContent = activeTitle
+        ? `Rank #${activeTitle.rank} · ${activeTitle.scenes.length} mapped locations`
+        : `${titles.reduce((count, movie) => count + movie.scenes.length, 0)} locations across the world`;
+      copy.append(title, meta, stats);
+      header.append(poster, copy);
+      document.getElementById("list-heading").textContent = activeTitle ? "Filming locations" : "Top 100 movies";
+      document.getElementById("scene-count").textContent = activeTitle ? `${activeTitle.scenes.length} places` : `${titles.length} movies`;
+      document.getElementById("scene-tip-text").textContent = activeTitle
+        ? "Select a location to focus the map on its country"
+        : "Select a movie or map pin to explore its filming locations";
+    }
+
+    function currentScenes() {
+      if (!activeTitle || mapView !== "country") return activeTitle?.scenes || [];
+      return activeTitle.scenes.filter((scene) => scene.country === activeTitle.scenes[activeScene]?.country);
+    }
+
+    function renderScenes() {
+      sceneList.replaceChildren();
+      if (!activeTitle) {
+        titles.forEach((movie) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "scene-item";
+          button.setAttribute("aria-label", `${movie.title}, rank ${movie.rank}, ${movie.scenes.length} filming locations`);
+          const number = document.createElement("span");
+          number.className = "scene-index";
+          number.textContent = String(movie.rank).padStart(2, "0");
+          const copy = document.createElement("span");
+          const name = document.createElement("span");
+          name.className = "scene-name";
+          name.textContent = movie.title;
+          const location = document.createElement("span");
+          location.className = "scene-location";
+          location.textContent = `${movie.scenes.length} mapped locations · ${movie.votes.toLocaleString()} votes`;
+          copy.append(name, location);
+          const tag = document.createElement("span");
+          tag.className = "scene-type";
+          tag.textContent = movie.rating.toFixed(1);
+          button.append(number, copy, tag);
+          button.addEventListener("click", () => chooseTitle(movie));
+          sceneList.appendChild(button);
+        });
+        return;
+      }
+
+      const scenes = currentScenes();
+      scenes.forEach((scene) => {
+        const index = activeTitle.scenes.indexOf(scene);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = `scene-item${index === activeScene ? " active" : ""}`;
+        button.setAttribute("aria-label", `${scene.name}, ${scene.place}`);
+        const number = document.createElement("span");
+        number.className = "scene-index";
+        number.textContent = String(index + 1).padStart(2, "0");
+        const copy = document.createElement("span");
+        const name = document.createElement("span");
+        name.className = "scene-name";
+        name.textContent = scene.name;
+        const location = document.createElement("span");
+        location.className = "scene-location";
+        location.textContent = scene.country;
+        copy.append(name, location);
+        const tag = document.createElement("span");
+        tag.className = "scene-type";
+        tag.textContent = `#${index + 1}`;
+        button.append(number, copy, tag);
+        button.addEventListener("click", () => selectScene(index));
+        sceneList.appendChild(button);
+      });
+    }
+
+    function renderMap() {
+      pinsLayer.replaceChildren();
+      const entries = activeTitle
+        ? currentScenes().map((scene) => ({ movie: activeTitle, scene, index: activeTitle.scenes.indexOf(scene) }))
+        : titles.flatMap((movie) => movie.scenes.map((scene, index) => ({ movie, scene, index })));
+      let markers = entries.map((entry) => [entry]);
+      if (!activeTitle) {
+        const grouped = new Map();
+        entries.forEach((entry) => {
+          const key = `${entry.scene.lon.toFixed(2)},${entry.scene.lat.toFixed(2)}`;
+          if (!grouped.has(key)) grouped.set(key, []);
+          grouped.get(key).push(entry);
+        });
+        markers = [...grouped.values()];
+      }
+
+      markers.forEach((groupEntries) => {
+        const { movie, scene, index } = groupEntries[0];
+        const { x, y } = project(scene.lon, scene.lat);
+        const aggregate = !activeTitle;
+        const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        group.setAttribute("class", `pin-group${aggregate ? " aggregate" : ""}${!aggregate && index === activeScene ? " selected" : ""}`);
+        group.setAttribute("transform", `translate(${x} ${y})`);
+        group.setAttribute("role", "button");
+        group.setAttribute("tabindex", "0");
+        const locationNames = [...new Set(groupEntries.map((entry) => entry.scene.name))];
+        const movieNames = [...new Set(groupEntries.map((entry) => entry.movie.title))];
+        const description = `${locationNames.join(", ")} · ${movieNames.slice(0, 4).join(", ")}${movieNames.length > 4 ? ` and ${movieNames.length - 4} more films` : ""}`;
+        group.setAttribute("aria-label", description);
+        const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+        title.textContent = description;
+        const halo = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        halo.setAttribute("class", "pin-halo");
+        halo.setAttribute("r", aggregate ? String(Math.min(11 + Math.log2(groupEntries.length) * 2, 20)) : index === activeScene ? "16" : "13");
+        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        circle.setAttribute("class", "pin");
+        circle.setAttribute("r", aggregate ? String(Math.min(7 + Math.log2(groupEntries.length) * 1.5, 14)) : index === activeScene ? "10" : "8");
+        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        label.setAttribute("class", "pin-number");
+        label.setAttribute("y", ".5");
+        label.textContent = aggregate ? (groupEntries.length > 1 ? String(groupEntries.length) : "") : String(index + 1);
+        group.append(title, halo, circle, label);
+        group.addEventListener("click", () => chooseTitle(movie, index));
+        group.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" || event.key === " ") { event.preventDefault(); chooseTitle(movie, index); }
+        });
+        pinsLayer.appendChild(group);
+      });
+
+      let viewBox = { x: 0, y: 0, width: 1000, height: 500 };
+      const selectedCountry = activeTitle?.scenes[activeScene]?.country;
+      if (selectedCountry) {
+        baseLand.querySelectorAll(".land").forEach((path) => {
+          path.classList.toggle("selected-country", path.dataset.country === selectedCountry);
+        });
+      } else {
+        baseLand.querySelectorAll(".land.selected-country").forEach((path) => path.classList.remove("selected-country"));
+      }
+      if (mapView === "country" && entries.length) {
+        const points = entries.map(({ scene }) => project(scene.lon, scene.lat));
+        const minX = Math.min(...points.map((point) => point.x));
+        const maxX = Math.max(...points.map((point) => point.x));
+        const minY = Math.min(...points.map((point) => point.y));
+        const maxY = Math.max(...points.map((point) => point.y));
+        const width = Math.max(maxX - minX + 90, 150);
+        const height = Math.max(maxY - minY + 70, 120);
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+        const aspect = 2;
+        const adjustedHeight = Math.max(height, width / aspect);
+        const adjustedWidth = adjustedHeight * aspect;
+        viewBox = { x: centerX - adjustedWidth / 2, y: centerY - adjustedHeight / 2, width: adjustedWidth, height: adjustedHeight };
+      }
+      if (zoom !== 1) {
+        const width = viewBox.width / zoom;
+        const height = viewBox.height / zoom;
+        viewBox = { x: viewBox.x + (viewBox.width - width) / 2, y: viewBox.y + (viewBox.height - height) / 2, width, height };
+      }
+      map.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`);
+      map.setAttribute("aria-label", `${mapView === "country" ? selectedCountry : "World"} map with ${entries.length} filming locations`);
+      const countries = new Set(entries.map(({ scene }) => scene.country));
+      document.getElementById("map-title").textContent = mapView === "country" ? selectedCountry : activeTitle?.title || "Top 100 movie locations";
+      document.getElementById("map-subtitle").textContent = activeTitle
+        ? `${entries.length} mapped locations · ${countries.size} ${countries.size === 1 ? "country" : "countries"}`
+        : `${entries.length} locations from ${titles.length} popular movies`;
+      document.getElementById("legend-text").textContent = activeTitle ? "Movie filming locations" : "Locations across all 100 movies";
+      document.querySelector(".legend-dot").style.background = activeTitle ? "var(--orange)" : "var(--green)";
+      document.getElementById("all-movies").classList.toggle("active", !activeTitle);
+    }
+
+    function render() { renderHeader(); renderScenes(); renderMap(); }
+
+    function selectScene(index) {
+      activeScene = index;
+      renderScenes();
+      renderMap();
+      const selected = sceneList.querySelector(".scene-item.active");
+      selected?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+
+    function chooseTitle(title, locationIndex = 0) {
+      activeTitle = title;
+      activeScene = locationIndex;
+      mapView = "world";
+      zoom = 1;
+      document.querySelectorAll(".view-option").forEach((button) => {
+        const active = button.dataset.view === mapView;
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+      searchInput.value = title.title;
+      closeSuggestions();
+      render();
+    }
+
+    function closeSuggestions() {
+      suggestions.hidden = true;
+      searchInput.setAttribute("aria-expanded", "false");
+    }
+
+    function openSuggestions(matches) {
+      suggestions.replaceChildren();
+      if (!matches.length) {
+        const empty = document.createElement("div");
+        empty.className = "empty-state";
+        empty.textContent = "No matching title or filming location in this movie index.";
+        suggestions.appendChild(empty);
+      } else {
+        const heading = document.createElement("div");
+        heading.className = "suggestion-heading";
+        heading.textContent = `${matches.length} matching ${matches.length === 1 ? "movie" : "movies"}`;
+        suggestions.appendChild(heading);
+        matches.slice(0, 8).forEach((title) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "suggestion";
+          button.setAttribute("role", "option");
+          const poster = document.createElement("span");
+          poster.className = "suggestion-poster";
+          poster.style.background = title.color;
+          poster.textContent = title.mark;
+          const copy = document.createElement("span");
+          const name = document.createElement("span");
+          name.className = "suggestion-name";
+          name.textContent = title.title;
+          const meta = document.createElement("span");
+          meta.className = "suggestion-meta";
+          meta.textContent = `#${title.rank} · ${title.scenes.length} locations · ${title.votes.toLocaleString()} votes`;
+          copy.append(name, meta);
+          button.append(poster, copy);
+          button.addEventListener("click", () => chooseTitle(title));
+          suggestions.appendChild(button);
+        });
+      }
+      suggestions.hidden = false;
+      searchInput.setAttribute("aria-expanded", "true");
+    }
+
+    function searchTitles(query) {
+      const normalized = query.trim().toLocaleLowerCase();
+      return titles.filter((title) => !normalized
+        || title.title.toLocaleLowerCase().includes(normalized)
+        || title.imdbId.toLocaleLowerCase().includes(normalized)
+        || title.scenes.some((scene) => scene.name.toLocaleLowerCase().includes(normalized) || scene.country.toLocaleLowerCase().includes(normalized)));
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("visible");
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove("visible"), 2600);
+    }
+
+    searchInput.addEventListener("input", () => {
+      openSuggestions(searchTitles(searchInput.value));
+    });
+    searchInput.addEventListener("focus", () => {
+      if (searchInput.value.trim()) openSuggestions(searchTitles(searchInput.value));
+    });
+    document.getElementById("search-form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const matches = searchTitles(searchInput.value);
+      closeSuggestions();
+      if (matches.length) chooseTitle(matches[0]);
+      else showToast("No match in the top 100 movie index.");
+    });
+    document.getElementById("all-movies").addEventListener("click", () => {
+      activeTitle = null;
+      activeScene = 0;
+      mapView = "world";
+      zoom = 1;
+      searchInput.value = "";
+      closeSuggestions();
+      document.querySelectorAll(".view-option").forEach((button) => {
+        const active = button.dataset.view === "world";
+        button.classList.toggle("active", active);
+        button.setAttribute("aria-pressed", String(active));
+      });
+      render();
+    });
+    document.querySelectorAll(".view-option").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (button.dataset.view === "country" && !activeTitle) {
+          showToast("Select a movie first to focus on its country locations.");
+          return;
+        }
+        mapView = button.dataset.view;
+        zoom = 1;
+        document.querySelectorAll(".view-option").forEach((option) => {
+          const active = option === button;
+          option.classList.toggle("active", active);
+          option.setAttribute("aria-pressed", String(active));
+        });
+        renderScenes();
+        renderMap();
+      });
+    });
+    document.getElementById("zoom-in").addEventListener("click", () => { zoom = Math.min(zoom * 1.4, 3); renderMap(); });
+    document.getElementById("zoom-out").addEventListener("click", () => { zoom = Math.max(zoom / 1.4, 1); renderMap(); });
+    document.addEventListener("click", (event) => {
+      if (!event.target.closest(".search-wrap")) closeSuggestions();
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") closeSuggestions();
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        searchInput.focus();
+      }
+    });
+
+    async function initialize() {
+      try {
+        const [movieResponse, mapResponse] = await Promise.all([
+          fetch("data/movies.json"),
+          fetch("data/world-countries.geojson")
+        ]);
+        if (!movieResponse.ok) throw new Error(`Movie data request failed: ${movieResponse.status}`);
+        if (!mapResponse.ok) throw new Error(`World map request failed: ${mapResponse.status}`);
+        const catalog = await movieResponse.json();
+        const world = await mapResponse.json();
+        if (!Array.isArray(catalog.movies) || catalog.movies.length !== 100) throw new Error("Movie catalog must contain exactly 100 titles.");
+        if (!Array.isArray(world.features) || world.features.length < 100) throw new Error("World boundary data is incomplete.");
+        titles.splice(0, titles.length, ...catalog.movies.map((movie) => ({
+          ...movie,
+          type: "Film",
+          year: "",
+          scenes: movie.locations.map((location) => ({
+            ...location,
+            place: location.name,
+            episode: "Filming location"
+          }))
+        })));
+        drawCountries(world.features);
+        render();
+      } catch (error) {
+        console.error("Scene Scout could not load its movie catalog or map data.", error);
+        document.getElementById("map-title").textContent = "Map data unavailable";
+        document.getElementById("map-subtitle").textContent = "Please refresh to try again";
+        sceneList.textContent = "The movie list and world map could not be loaded.";
+        showToast("Unable to load movie and map data.");
+      }
+    }
+
+    initialize();
+  </script>
+</body>
+</html>
